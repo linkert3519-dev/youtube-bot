@@ -1,7 +1,6 @@
 import os
 import re
 import yt_dlp
-import subprocess
 from telegram import Update
 from telegram.ext import ApplicationBuilder, MessageHandler, filters, ContextTypes
 from openai import OpenAI
@@ -24,35 +23,29 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await update.message.reply_text("Пришли ссылку на YouTube.")
         return
 
-    await update.message.reply_text("Скачиваю аудио...")
+    await update.message.reply_text("Скачиваю и сжимаю аудио...")
 
     ydl_opts = {
-        'format': 'bestaudio/best',
+        'format': 'bestaudio[filesize<25M]/bestaudio',
         'outtmpl': 'audio.%(ext)s',
-        'quiet': True
+        'quiet': True,
+        'postprocessors': [{
+            'key': 'FFmpegExtractAudio',
+            'preferredcodec': 'mp3',
+            'preferredquality': '64',
+        }],
     }
 
     with yt_dlp.YoutubeDL(ydl_opts) as ydl:
         ydl.download([url])
 
-    original_file = [f for f in os.listdir() if f.startswith("audio.")][0]
-
-    await update.message.reply_text("Сжимаю аудио...")
-
-    compressed_file = "audio_compressed.mp3"
-
-    subprocess.run([
-        "ffmpeg",
-        "-i", original_file,
-        "-b:a", "64k",
-        compressed_file
-    ])
+    file_name = [f for f in os.listdir() if f.startswith("audio.")][0]
 
     await update.message.reply_text("Делаю транскрипцию...")
 
     transcript = client.audio.transcriptions.create(
         model="whisper-1",
-        file=open(compressed_file, "rb")
+        file=open(file_name, "rb")
     )
 
     text = transcript.text
@@ -70,8 +63,7 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text("📄 Транскрипция:\n" + text[:3000])
     await update.message.reply_text("🧠 Тезисы:\n" + summary.choices[0].message.content)
 
-    os.remove(original_file)
-    os.remove(compressed_file)
+    os.remove(file_name)
 
 
 if __name__ == "__main__":
