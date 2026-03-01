@@ -1,11 +1,11 @@
 import os
 import re
 import yt_dlp
+import subprocess
 from telegram import Update
 from telegram.ext import ApplicationBuilder, MessageHandler, filters, ContextTypes
 from openai import OpenAI
 
-# Берём токены из переменных Railway
 TELEGRAM_TOKEN = os.getenv("TELEGRAM_TOKEN")
 OPENAI_KEY = os.getenv("OPENAI_KEY")
 
@@ -35,14 +35,24 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
     with yt_dlp.YoutubeDL(ydl_opts) as ydl:
         ydl.download([url])
 
-    # Находим скачанный файл
-    file_name = [f for f in os.listdir() if f.startswith("audio.")][0]
+    original_file = [f for f in os.listdir() if f.startswith("audio.")][0]
+
+    await update.message.reply_text("Сжимаю аудио...")
+
+    compressed_file = "audio_compressed.mp3"
+
+    subprocess.run([
+        "ffmpeg",
+        "-i", original_file,
+        "-b:a", "64k",
+        compressed_file
+    ])
 
     await update.message.reply_text("Делаю транскрипцию...")
 
     transcript = client.audio.transcriptions.create(
         model="whisper-1",
-        file=open(file_name, "rb")
+        file=open(compressed_file, "rb")
     )
 
     text = transcript.text
@@ -60,8 +70,8 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text("📄 Транскрипция:\n" + text[:3000])
     await update.message.reply_text("🧠 Тезисы:\n" + summary.choices[0].message.content)
 
-    # Удаляем файл после обработки
-    os.remove(file_name)
+    os.remove(original_file)
+    os.remove(compressed_file)
 
 
 if __name__ == "__main__":
