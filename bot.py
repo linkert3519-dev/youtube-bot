@@ -5,7 +5,7 @@ from telegram import Update
 from telegram.ext import ApplicationBuilder, MessageHandler, filters, ContextTypes
 from openai import OpenAI
 
-# Берём переменные из окружения (мы добавим их позже в Railway)
+# Берём токены из переменных Railway
 TELEGRAM_TOKEN = os.getenv("TELEGRAM_TOKEN")
 OPENAI_KEY = os.getenv("OPENAI_KEY")
 
@@ -64,12 +64,7 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
     os.remove(file_name)
 
 
-async def main():
+if __name__ == "__main__":
     app = ApplicationBuilder().token(TELEGRAM_TOKEN).build()
     app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_message))
-    await app.run_polling()
-
-
-if __name__ == "__main__":
-    import asyncio
-    asyncio.run(main())
+    app.run_polling()
