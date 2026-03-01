@@ -23,17 +23,12 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await update.message.reply_text("Пришли ссылку на YouTube.")
         return
 
-    await update.message.reply_text("Скачиваю и сжимаю аудио...")
+    await update.message.reply_text("Скачиваю аудио...")
 
     ydl_opts = {
         'format': 'bestaudio[filesize<25M]/bestaudio',
         'outtmpl': 'audio.%(ext)s',
-        'quiet': True,
-        'postprocessors': [{
-            'key': 'FFmpegExtractAudio',
-            'preferredcodec': 'mp3',
-            'preferredquality': '64',
-        }],
+        'quiet': True
     }
 
     with yt_dlp.YoutubeDL(ydl_opts) as ydl:
@@ -43,10 +38,11 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     await update.message.reply_text("Делаю транскрипцию...")
 
-    transcript = client.audio.transcriptions.create(
-        model="whisper-1",
-        file=open(file_name, "rb")
-    )
+    with open(file_name, "rb") as audio_file:
+        transcript = client.audio.transcriptions.create(
+            model="whisper-1",
+            file=audio_file
+        )
 
     text = transcript.text
 
